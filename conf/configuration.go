@@ -23,10 +23,10 @@ limitations under the License.
 // options.
 //
 // Generated documentation is available at:
-// https://godoc.org/github.com/RedHatInsights/insights-content-service/conf
+// https://godoc.org/github.com/RedHatInsights/insights-results-aggregator-mock/conf
 //
 // Documentation in literate-programming-style is available at:
-// https://redhatinsights.github.io/insights-content-service/packages/conf/configuration.html
+// https://redhatinsights.github.io/insights-results-aggregator-mock/packages/conf/configuration.html
 package conf
 
 import (
@@ -40,6 +40,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 
+	"github.com/RedHatInsights/insights-results-aggregator-mock/content"
 	"github.com/RedHatInsights/insights-results-aggregator-mock/groups"
 	"github.com/RedHatInsights/insights-results-aggregator-mock/server"
 )
@@ -48,15 +49,18 @@ const (
 	configFileEnvVariableName = "INSIGHTS_RESULTS_AGGREGATOR_MOCK_CONFIG_FILE"
 )
 
+// PathsConfiguration is data structure that represents path to directory
+// containing files with mock data.
 type PathsConfiguration struct {
 	MockDataPath string `mapstructure:"mock_data" toml:"mock_data"`
 }
 
 // ConfigStruct is a structure holding the whole service configuration
 type ConfigStruct struct {
-	Server server.Configuration `mapstructure:"server" toml:"server"`
-	Groups groups.Configuration `mapstructure:"groups" toml:"groups"`
-	Paths  PathsConfiguration   `mapstructure:"paths" toml:"paths"`
+	Server  server.Configuration  `mapstructure:"server" toml:"server"`
+	Content content.Configuration `mapstructure:"content" toml:"content"`
+	Groups  groups.Configuration  `mapstructure:"groups" toml:"groups"`
+	Paths   PathsConfiguration    `mapstructure:"paths" toml:"paths"`
 }
 
 // Config has exactly the same structure as *.toml file
@@ -105,7 +109,7 @@ func LoadConfiguration(defaultConfigFile string) (ConfigStruct, error) {
 
 	// override config from env if there's variable in env
 
-	const envPrefix = "INSIGHTS_CONTENT_SERVICE_"
+	const envPrefix = "INSIGHTS_RESULTS_AGGREGATOR_MOCK_"
 
 	viper.AutomaticEnv()
 	viper.SetEnvPrefix(envPrefix)
@@ -135,10 +139,20 @@ func GetGroupsConfiguration() groups.Configuration {
 	return Config.Groups
 }
 
+// GetContentConfiguration returns groups configuration
+func GetContentConfiguration() content.Configuration {
+	err := checkIfFileExists(Config.Content.Path)
+	if err != nil {
+		log.Fatal().Err(err).Msg("The content file is not defined")
+	}
+
+	return Config.Content
+}
+
 // checkIfFileExists returns nil if path doesn't exist or isn't a file,
 // otherwise it returns corresponding error
 func checkIfFileExists(path string) error {
-	if len(path) == 0 {
+	if path == "" {
 		return fmt.Errorf("Empty path provided")
 	}
 	fileInfo, err := os.Stat(path)

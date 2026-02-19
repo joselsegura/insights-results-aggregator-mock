@@ -1,5 +1,5 @@
 /*
-Copyright © 2020 Red Hat, Inc.
+Copyright © 2020, 2021, 2022, 2023 Red Hat, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,6 +16,12 @@ limitations under the License.
 
 // Package types contains declaration of various data types (usually structures)
 // used elsewhere in the aggregator code.
+//
+// Generated documentation is available at:
+// https://godoc.org/github.com/RedHatInsights/insights-results-aggregator-mock/types
+//
+// Documentation in literate-programming-style is available at:
+// https://redhatinsights.github.io/insights-results-aggregator-mock/packages/types/types.html
 package types
 
 import "time"
@@ -72,7 +78,7 @@ type RuleContentResponse struct {
 	CreatedAt    string      `json:"created_at"`
 	Description  string      `json:"description"`
 	ErrorKey     string      `json:"-"`
-	Generic      string      `json:"details"`
+	Generic      interface{} `json:"details"`
 	Reason       string      `json:"reason"`
 	Resolution   string      `json:"resolution"`
 	TotalRisk    int         `json:"total_risk"`
@@ -94,6 +100,12 @@ type DisabledRuleResponse struct {
 
 // RuleID represents type for rule id
 type RuleID string
+
+// RuleSelector represents component + error key
+type RuleSelector string
+
+// Component represent name of component (of rule)
+type Component string
 
 // ErrorKey represents type for error key
 type ErrorKey string
@@ -143,11 +155,109 @@ type RuleWithContent struct {
 	Tags        []string  `json:"tags"`
 }
 
+// RuleHit represents one rule hit for one defined cluster
+type RuleHit struct {
+	Component Component
+	ErrorKey  ErrorKey
+	Cluster   ClusterName
+}
+
 // KafkaOffset type for kafka offset
 type KafkaOffset int64
 
 // DBDriver type for db driver enum
 type DBDriver int
+
+// Acknowledge represents user acknowledgement of given rule
+type Acknowledge struct {
+	Acknowledged  bool   `json:"-"` // let's skip this one in responses
+	Rule          string `json:"rule"`
+	Justification string `json:"justification"`
+	CreatedBy     string `json:"created_by"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+}
+
+// AcknowledgementsMetadata contains metadata about list of acknowledgements
+type AcknowledgementsMetadata struct {
+	Count int `json:"count"`
+}
+
+// AcknowledgementsResponse is structure returned to client in JSON
+// serialization format
+type AcknowledgementsResponse struct {
+	Metadata AcknowledgementsMetadata `json:"meta"`
+	Data     []Acknowledge            `json:"data"`
+}
+
+// AcknowledgementJustification data structure represents body of request with
+// specified justification of given acknowledgement
+type AcknowledgementJustification struct {
+	Value string `json:"justification"`
+}
+
+// AcknowledgementRuleSelectorJustification data structure represents body of
+// request with specified rule selector and justification of given
+// acknowledgement
+type AcknowledgementRuleSelectorJustification struct {
+	RuleSelector RuleSelector `json:"rule_id"`
+	Value        string       `json:"justification"`
+}
+
+// Alert data structure representing a single alert
+type Alert struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Severity  string `json:"severity"`
+	URL       string `json:"url"`
+}
+
+// OperatorCondition data structure representing a single operator condition
+type OperatorCondition struct {
+	Name      string `json:"name"`
+	Condition string `json:"condition"`
+	Reason    string `json:"reason"`
+	URL       string `json:"url"`
+}
+
+// UpgradeRisksPredictors data structure represents the alerts and conditions
+// that are contained in an upgrade-risk-predictions response
+type UpgradeRisksPredictors struct {
+	Alerts             []Alert             `json:"alerts"`
+	OperatorConditions []OperatorCondition `json:"operator_conditions"`
+}
+
+// UpgradeRiskPrediction data structure represents body of the response
+// for an upgrade-risk-predictions request
+type UpgradeRiskPrediction struct {
+	Recommended bool                   `json:"upgrade_recommended"`
+	Predictors  UpgradeRisksPredictors `json:"upgrade_risks_predictors"`
+}
+
+// ClusterUpgradeRiskPrediction data structure represents body of the reponse
+// for a multi-cluster upgrade-risk-prediction request
+type ClusterUpgradeRiskPrediction struct {
+	Cluster     string                  `json:"cluster_id"`
+	Status      string                  `json:"prediction_status"`
+	Recommended bool                    `json:"upgrade_recommended,omitempty"`
+	Predictors  *UpgradeRisksPredictors `json:"upgrade_risks_predictors,omitempty"`
+}
+
+// SimplifiedReport is structure returned by the service to IO to handle On Demand Data Gathering
+type SimplifiedReport struct {
+	Cluster   string              `json:"cluster"`
+	RequestID string              `json:"requestID"`
+	Status    string              `json:"status"`
+	RuleHits  []SimplifiedRuleHit `json:"report"`
+}
+
+// SimplifiedRuleHit structure represents one simplified rule hit for On Demand Data Gathering
+type SimplifiedRuleHit struct {
+	RuleFQDN    string `json:"rule_fqdn"`
+	ErrorKey    string `json:"error_key"`
+	Description string `json:"description"`
+	TotalRisk   int    `json:"total_risk"`
+}
 
 const (
 	// DBDriverSQLite3 shows that db driver is sqlite
@@ -166,3 +276,14 @@ const (
 	// UserVoteLike shows user's like
 	UserVoteLike UserVote = 1
 )
+
+// DVOWorkload structure represents one item for DVO recommendation for any cluster
+type DVOWorkload struct {
+	Rule             string
+	CheckDescription string
+	CheckRemediation string
+	Kind             string
+	UID              string
+	NamespaceName    string
+	NamespaceUID     string
+}

@@ -1,0 +1,19 @@
+name: BDD tests
+
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+
+jobs:
+  bdd:
+    permissions:
+      contents: read
+      pull-requests: write
+
+    name: BDD tests (reusable)
+    uses: joselsegura/processing-tools/.github/workflows/bdd.yml@reusable-bdd
+    with:
+      service: aggregator-mock
+

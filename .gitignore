@@ -6,4 +6,11 @@ coverage.out
 aggregator
 rest-api-tests
 rules-content
-*.py
+issue.py
+*.csv
+mock
+real_content.json
+coverage/
+coverage.txt
+covcounters.*
+covmeta.*

@@ -1,10 +1,15 @@
 [server]
 address = ":8080"
-api_prefix = "/api/v1/"
+api_prefix = "/api/insights-results-aggregator/v2/"
 api_spec_file = "openapi.json"
+debug = true
+
+[content]
+path = "content.json"
 
 [groups]
 path = "groups_config.yaml"
 
 [paths]
 mock_data = "data"
+

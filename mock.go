@@ -1,5 +1,5 @@
 /*
-Copyright © 2020 Red Hat, Inc.
+Copyright © 2020, 2021, 2022 Red Hat, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/RedHatInsights/insights-results-aggregator-mock/conf"
+	"github.com/RedHatInsights/insights-results-aggregator-mock/content"
 	"github.com/RedHatInsights/insights-results-aggregator-mock/groups"
 	"github.com/RedHatInsights/insights-results-aggregator-mock/server"
 	"github.com/RedHatInsights/insights-results-aggregator-mock/storage"
@@ -48,36 +49,49 @@ var (
 	serverInstance *server.HTTPServer
 
 	// BuildVersion contains the major.minor version of the CLI client
-	BuildVersion string = "*not set*"
+	BuildVersion = "*not set*"
 
 	// BuildTime contains timestamp when the CLI client has been built
-	BuildTime string = "*not set*"
+	BuildTime = "*not set*"
 
 	// BuildBranch contains Git branch used to build this application
-	BuildBranch string = "*not set*"
+	BuildBranch = "*not set*"
 
 	// BuildCommit contains Git commit used to build this application
-	BuildCommit string = "*not set*"
+	BuildCommit = "*not set*"
 )
 
 // startService starts service and returns error code
-func startService(config conf.ConfigStruct) int {
+func startService(config *conf.ConfigStruct) int {
 	serverCfg := conf.GetServerConfiguration()
 	groupsCfg := conf.GetGroupsConfiguration()
+	contentCfg := conf.GetContentConfiguration()
 
-	groups, err := groups.ParseGroupConfigFile(groupsCfg.ConfigPath)
+	ruleGroups, err := groups.ParseGroupConfigFile(groupsCfg.ConfigPath)
 	if err != nil {
 		log.Error().Err(err).Msg("Groups init error")
 		return ExitStatusServerError
 	}
 
-	storage, err := storage.New(config.Paths.MockDataPath)
+	ruleContent, err := content.ParseContent(contentCfg.Path)
 	if err != nil {
-		log.Error().Err(err).Msg("Storage init error")
+		log.Error().Err(err).Msg("Content init error")
+		return ExitStatusServerError
+	}
+	log.Info().Int("count", len(ruleContent)).Msg("Content read")
+
+	storageInstance, err := storage.New(config.Paths.MockDataPath)
+	if err != nil {
+		log.Error().Err(err).Msg("Storage construction error")
+		return ExitStatusServerError
+	}
+	err = storageInstance.Init()
+	if err != nil {
+		log.Error().Err(err).Msg("Storage initialization error")
 		return ExitStatusServerError
 	}
 
-	serverInstance = server.New(serverCfg, storage, groups)
+	serverInstance = server.New(serverCfg, storageInstance, ruleGroups, ruleContent)
 
 	err = serverInstance.Start()
 	if err != nil {
@@ -88,7 +102,7 @@ func startService(config conf.ConfigStruct) int {
 	return ExitStatusOK
 }
 
-func printInfo(msg string, val string) {
+func printInfo(msg, val string) {
 	fmt.Printf("%s\t%s\n", msg, val)
 }
 
@@ -120,13 +134,18 @@ Usage:
 
 The commands are:
 
-    <EMPTY>             starts content service
-    start-service       starts content service
-    help                prints help
-    print-help          prints help
-    print-config        prints current configuration set by files & env variables
-    print-version-info  prints version info
+    <EMPTY>                      starts content service
+    start-service                starts content service
+    help     print-help          prints help
+    config   print-config        prints current configuration set by files & env variables
+    version  print-version-info  prints version info
+    authors  print-authors       prints authors
 
+`
+
+const authorsList = `
+Authors:
+Pavel Tisnovsky <ptisnovs@redhat.com>
 `
 
 func printHelp() int {
@@ -134,11 +153,17 @@ func printHelp() int {
 	return ExitStatusOK
 }
 
-func printConfig(config conf.ConfigStruct) int {
+func printAuthors() int {
+	fmt.Print(authorsList)
+
+	return ExitStatusOK
+}
+
+func printConfig(config *conf.ConfigStruct) int {
 	configBytes, err := json.MarshalIndent(config, "", "    ")
 
 	if err != nil {
-		log.Error().Err(err)
+		log.Error().Err(err).Msg("print config")
 		return ExitStatusOther
 	}
 
@@ -159,11 +184,18 @@ func main() {
 		command = strings.ToLower(strings.TrimSpace(os.Args[1]))
 	}
 
-	os.Exit(handleCommand(config, command))
+	os.Exit(handleCommand(&config, removeDashes(command)))
 }
 
-func handleCommand(config conf.ConfigStruct, command string) int {
-	// TODO: allow -/-- at the beggining of all commands
+// function removeDashes removes one or two dashes from the beginning of a
+// given string.
+func removeDashes(command string) string {
+	command = strings.TrimPrefix(command, "--")
+	command = strings.TrimPrefix(command, "-")
+	return command
+}
+
+func handleCommand(config *conf.ConfigStruct, command string) int {
 	switch command {
 	case "start-service":
 		logVersionInfo()
@@ -175,10 +207,12 @@ func handleCommand(config conf.ConfigStruct, command string) int {
 		return ExitStatusOK
 	case "help", "print-help":
 		return printHelp()
-	case "print-config":
-		return printConfig(conf.Config)
+	case "config", "print-config":
+		return printConfig(&conf.Config)
 	case "version", "print-version-info":
 		return printVersionInfo()
+	case "authors", "print-authors":
+		return printAuthors()
 	default:
 		fmt.Printf("\nCommand '%v' not found\n", command)
 		return printHelp()
